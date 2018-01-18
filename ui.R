@@ -3,7 +3,7 @@ library(shiny)
 shinyUI(fluidPage(
 
   # Application title
-  titlePanel("Monthly fisheries catch for Timor-Leste"),
+  titlePanel("Timor-Leste Reported Monthly Fisheries Catch"),
   # Sidebar with a slider input for number of bins
   sidebarLayout(
     sidebarPanel(
@@ -28,7 +28,11 @@ shinyUI(fluidPage(
     ),
 
     mainPanel(
-      plotOutput("plot1")
+      tabsetPanel(
+        tabPanel("Plot", br(), plotOutput("plot1")),
+        tabPanel("Summary", br(), tableOutput("table1"))
+      )
+      
     )
     # mainPanel(
     #   tabsetPanel(
@@ -44,7 +48,5 @@ shinyUI(fluidPage(
     #     )
     #   )
     # )
-
-    
   )
 ))
