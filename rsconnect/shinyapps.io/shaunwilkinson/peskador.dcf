@@ -5,8 +5,8 @@ account: shaunwilkinson
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 223210
-bundleId: 1017221
+bundleId: 1180735
 url: https://shaunwilkinson.shinyapps.io/peskador/
-when: 1507550510.30695
+when: 1516238385.61504
 asMultiple: FALSE
 asStatic: FALSE

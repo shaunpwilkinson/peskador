@@ -74,7 +74,7 @@ shinyServer(function(input, output){
     newx$Date <- lubridate::floor_date(as.Date(newx$Date), unit = "month")
     monthlyCPUE <- aggregate(newx[2:3], by = list(newx$Date), FUN = sum) 
     monthlyCPUE$CPUE <- monthlyCPUE$KG/monthlyCPUE$hours
-    colnames(monthlyCPUE)[1] <- c("Month", "Reported catch (KG)", "Effort (hours)", "CPUE (KG/hour)")
+    colnames(monthlyCPUE) <- c("Month", "Reported catch (KG)", "Effort (hours)", "CPUE (KG/hour)")
     monthlyCPUE$Month <- format(monthlyCPUE$Month, "%b-%Y")
     monthlyCPUE
   })
