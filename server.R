@@ -11,15 +11,17 @@ shinyServer(function(input, output){
                                "true&output=csv"), destfile = tmp, quiet = TRUE)
   if(test != 0) stop("Error 1")
   x <- read.csv(tmp, stringsAsFactors = FALSE)
+  x$date <- as.Date(x$date)
   # remove all rows whose parent trips contain NAs
   discards <- is.na(x$station) | is.na(x$hab) | is.na(x$gear)| 
     is.na(x$weight_g) | is.na(x$trip_effort) #logical
   discards <- x$Trip_ID[discards] #indices
   discards <- x$Trip_ID %in% discards #logical
   x <- x[!discards, ] 
-  discards <- as.Date(x$date) >= lubridate::floor_date(Sys.Date(), unit = "month")
-  x <- x[!discards, ] 
-  output$plot1 <- renderPlot({
+  discards <- x$date >= lubridate::floor_date(Sys.Date(), unit = "month")
+  x <- x[!discards, ]
+  datasetInput <- reactive({
+    x <- x[x$date > input$dateRange[1] & x$date < input$dateRange[2], ]
     indices <- match(input$site, c("Adara", "Beloi", "Biqueli", "Vemasse", "Adarai",
                                    "Uaroana", "Com", "Tutuala", "Lore"))
     x <- x[x$station %in% indices, ]
@@ -28,12 +30,8 @@ shinyServer(function(input, output){
     indices <- match(input$gear, c("Net", "Hook & Line", "Spear"))
     indices <- unlist(list(c(1, 5, 7:11), 2:3, 4)[indices], use.names = FALSE)
     x <- x[x$gear %in% indices, ]
-    if(nrow(x) < 30){
-      plot(0:1, 0:1, type = "n", axes = FALSE, ann = FALSE)
-      legend("center", legend = "Insufficient data to render plot\n", bty = "n")
-      box()
-      return(NULL)
-    }
+    if(nrow(x) < 30) return(NULL)
+    x$date <- as.character(x$date)
     newx <- aggregate(x$date, by = list(x$Trip_ID), FUN = function(x) x[1])[2]
     colnames(newx) <- "Date"
     newx$KG <- aggregate(x$weight_g/1000, by = list(x$Trip_ID), FUN = sum)[[2]]
@@ -42,6 +40,17 @@ shinyServer(function(input, output){
     monthlyCPUE <- aggregate(newx[2:3], by = list(newx$Date), FUN = sum) 
     monthlyCPUE$CPUE <- monthlyCPUE$KG/monthlyCPUE$hours
     colnames(monthlyCPUE)[1] <- "Date"
+    return(monthlyCPUE)
+  })
+  
+  output$plot1 <- renderPlot({
+    monthlyCPUE <- datasetInput()
+    if(is.null(monthlyCPUE)){
+      plot(0:1, 0:1, type = "n", axes = FALSE, ann = FALSE)
+      legend("center", legend = "Insufficient data to render plot\n", bty = "n")
+      box()
+      return(NULL)
+    }
     catch <- zoo::zoo(monthlyCPUE$KG, monthlyCPUE$Date)
     effort <- zoo::zoo(monthlyCPUE$hours, monthlyCPUE$Date)
     CPUE <- zoo::zoo(monthlyCPUE$CPUE, monthlyCPUE$Date)
@@ -57,25 +66,21 @@ shinyServer(function(input, output){
     axis(1, at = time(CPUE), labels = labs)
     par(op)
   })
+  
   output$table1 <- renderTable({
-    indices <- match(input$site, c("Adara", "Beloi", "Biqueli", "Vemasse", "Adarai",
-                                   "Uaroana", "Com", "Tutuala", "Lore"))
-    x <- x[x$station %in% indices, ]
-    indices <- match(input$hab, c("Reef", "FAD", "Deep", "Beach"))
-    x <- x[x$hab %in% indices, ]
-    indices <- match(input$gear, c("Net", "Hook & Line", "Spear"))
-    indices <- unlist(list(c(1, 5, 7:11), 2:3, 4)[indices], use.names = FALSE)
-    x <- x[x$gear %in% indices, ]
-    if(nrow(x) < 30) return(NULL)
-    newx <- aggregate(x$date, by = list(x$Trip_ID), FUN = function(x) x[1])[2]
-    colnames(newx) <- "Date"
-    newx$KG <- aggregate(x$weight_g/1000, by = list(x$Trip_ID), FUN = sum)[[2]]
-    newx$hours <- aggregate(x$trip_effort, by = list(x$Trip_ID), FUN = function(x) x[1])[[2]]
-    newx$Date <- lubridate::floor_date(as.Date(newx$Date), unit = "month")
-    monthlyCPUE <- aggregate(newx[2:3], by = list(newx$Date), FUN = sum) 
-    monthlyCPUE$CPUE <- monthlyCPUE$KG/monthlyCPUE$hours
+    monthlyCPUE <- datasetInput()
     colnames(monthlyCPUE) <- c("Month", "Reported catch (KG)", "Effort (hours)", "CPUE (KG/hour)")
     monthlyCPUE$Month <- format(monthlyCPUE$Month, "%b-%Y")
     monthlyCPUE
   })
+  
+  output$downloadData <- downloadHandler(
+    filename = "peskador.csv",
+    content = function(file) {
+      monthlyCPUE <- datasetInput()
+      colnames(monthlyCPUE) <- c("Month", "Reported catch (KG)", "Effort (hours)", "CPUE (KG/hour)")
+      monthlyCPUE$Month <- format(monthlyCPUE$Month, "%b-%Y")
+      write.csv(monthlyCPUE, file, row.names = FALSE)
+    }
+  )
 })
